@@ -2,8 +2,7 @@ plugins {
     id 'java'
 }
 
-group = 'org.example'
-version = '1.0-SNAPSHOT'
+group = 'ru.nsu.some.team'
 
 repositories {
     mavenCentral()
@@ -22,7 +21,7 @@ test {
 jar {
     manifest {
         attributes(
-                'Premain-Class': 'ru.nsu.fit.melnikov.multiple.inheritance.MultipleInheritanceAgent',
+                'Premain-Class': 'ru.nsu.some.team.transformer.MultipleInheritanceAgent',
                 'Can-Redefine-Classes': true,
                 'Can-Retransform-Classes': true
         )

@@ -1,4 +1,4 @@
-package ru.nsu.fit.some.team.multiple.inheritance;
+package ru.nsu.some.team.transformer;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

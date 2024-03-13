@@ -1,0 +1,26 @@
+plugins {
+    id 'java'
+    id 'application'
+    id("com.ryandens.javaagent-application") version "0.4.2"
+}
+
+group = 'ru.nsu.some.team'
+
+repositories {
+    mavenCentral()
+}
+
+application {
+    mainClass.set('ru.nsu.some.team.app.Main')
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.9.1')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    implementation project(':transformer')
+    javaagent project(':transformer')
+}
+
+test {
+    useJUnitPlatform()
+}
