@@ -1,5 +1,8 @@
 package ru.nsu.some.team.transformer;
 
+import java.lang.instrument.ClassFileTransformer;
+import java.security.ProtectionDomain;
+import javassist.CannotCompileException;
 import javassist.ClassPool;
 import javassist.CtClass;
 import javassist.CtConstructor;
@@ -8,71 +11,114 @@ import javassist.CtMethod;
 import javassist.NotFoundException;
 import javassist.bytecode.Descriptor;
 
-import java.lang.instrument.ClassFileTransformer;
-import java.security.ProtectionDomain;
-import java.util.Arrays;
-import java.util.List;
-
 public class MultipleInheritanceTransformer implements ClassFileTransformer {
-    @Override
-    public byte[] transform(
-            ClassLoader loader,
-            String className,
-            Class<?> classBeingRedefined,
-            ProtectionDomain protectionDomain,
-            byte[] classFileBuffer) {
-        ClassPool cp = ClassPool.getDefault();
-        String effectiveClassName = className.replaceAll("/", ".");
-        try {
-            CtClass currentClass = cp.get(effectiveClassName);
 
-            if (currentClass.hasAnnotation(Extends.class)) {
-                Extends annotation = (Extends) currentClass.getAnnotation(Extends.class);
+  private void addCallNextMethod(CtClass current) throws CannotCompileException {
+    CtField nextClass = CtField.make("public Object nextObject = null;", current);
+    current.addField(nextClass);
 
-                System.out.printf("Found class with Extends annotation: %s\n", currentClass.getName());
+    CtMethod newMethod =
+        CtMethod.make(
+            """
+private Object callNext(String methodName) throws NoSuchMethodException {
+  if (this.nextObject == null) return null;
+  return nextObject.getClass().getMethod(methodName, new Class[] {}).invoke(this.nextObject, new Object[] {});
+}
+""",
+            current);
+    current.addMethod(newMethod);
+  }
 
-                for (Class<?> parent : annotation.value()) {
-                    System.out.printf("Processing parent %s\n", parent.getName());
+  @Override
+  public byte[] transform(
+      ClassLoader loader,
+      String className,
+      Class<?> classBeingRedefined,
+      ProtectionDomain protectionDomain,
+      byte[] classFileBuffer) {
+    ClassPool cp = ClassPool.getDefault();
+    String effectiveClassName = className.replaceAll("/", ".");
+    try {
+      CtClass currentClass = cp.get(effectiveClassName);
 
-                    loader.loadClass(parent.getName());
-                    CtClass parentClass = cp.getCtClass(parent.getName());
+      if (currentClass.hasAnnotation(Extends.class)) {
+        addCallNextMethod(currentClass);
 
-                    String fieldName = "parent" + parent.getSimpleName();
-                    String parentFieldString = String.format("protected %s %s;", parent.getName(), fieldName);
-                    CtField parentField = CtField.make(parentFieldString, currentClass);
-                    currentClass.addField(parentField);
-                    System.out.println("Generate: " + parentFieldString);
+        System.out.printf("Found class with Extends annotation: %s\n", currentClass.getName());
 
-                    CtConstructor ctConstructor =
-                            currentClass.getConstructor(Descriptor.ofConstructor(new CtClass[]{}));
-                    String ctorString = String.format("this.%s = new %s();", fieldName, parent.getName());
-                    System.out.println("Generate: " + ctorString);
-                    ctConstructor.insertBeforeBody(ctorString);
+        CtMethod dfsMethod =
+            CtMethod.make(
+                """
+public java.util.List dfs(java.util.Set visited, java.util.Set parents) {
+    java.util.List result = new java.util.ArrayList();
+    if (parents.size() == 0) return result;
 
-                    List<String> currentMethods = Arrays.stream(currentClass.getDeclaredMethods())
-                            .map(CtMethod::getName)
-                            .toList();
+    ClassLoader loader = this.getClass().getClassLoader();
+    java.util.Iterator iter = parents.iterator();
 
-                    for (CtMethod m : parentClass.getDeclaredMethods()) {
-                        if (!currentMethods.contains(m.getName())) {
-                            String methodString = String.format(
-                                    "protected void %s() { this.%s.%s(); }",
-                                    m.getName(), fieldName, m.getName());
-                            System.out.println("Generate: " + methodString);
-                            CtMethod newMethod = CtMethod.make(methodString, currentClass);
-                            currentClass.addMethod(newMethod);
-                        }
-                    }
-                }
+    Class parentClass;
+    do {
+      parentClass = (Class) iter.next();
+      if (visited.contains(parentClass)) continue;
+      visited.add(parentClass);
 
-                byte[] newByteCode = currentClass.toBytecode();
-                currentClass.detach();
-                return newByteCode;
-            }
-        } catch (NotFoundException ignore) {
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return classFileBuffer;
+      loader.loadClass(parentClass.getName());
+
+      if (parentClass.isAnnotationPresent(ru.nsu.some.team.transformer.Extends.class)) {
+        ru.nsu.some.team.transformer.Extends annotation = (ru.nsu.some.team.transformer.Extends)
+                parentClass.getAnnotation(ru.nsu.some.team.transformer.Extends.class);
+
+        java.util.Set grandParents = new java.util.HashSet(java.util.Arrays.asList(annotation.value()));
+        java.util.List subResult = this.getClass().getMethod("dfs", new Class[] {java.util.Set.class, java.util.Set.class}).invoke(this, new Object[] {visited, grandParents});
+        result.addAll(subResult);
+      }
+      result.add(parentClass);
+    } while (iter.hasNext());
+    return result;
+  }
+""",
+                currentClass);
+        currentClass.addMethod(dfsMethod);
+
+        CtConstructor ctConstructor =
+            currentClass.getConstructor(Descriptor.ofConstructor(new CtClass[] {}));
+        String ctorString =
+            """
+java.util.List parents = this.getClass().getMethod("dfs", new Class[] {java.util.Set.class, java.util.Set.class}).invoke(this, new Object[] {
+            new java.util.HashSet(),
+            new java.util.HashSet(
+                  java.util.Arrays.asList(((ru.nsu.some.team.transformer.Extends) this.getClass().getAnnotation(ru.nsu.some.team.transformer.Extends.class)).value())
+            )
+      }
+);
+parents = parents.reversed();
+System.out.println("Parents of " + this.getClass().getSimpleName() + " class: " + parents);
+
+ClassLoader loader = this.getClass().getClassLoader();
+java.util.List parentObjects = new java.util.ArrayList(parents.size());
+for (int i = 0; i < parents.size(); i++) {
+  Class parentClass = (Class) parents.get(i);
+  loader.loadClass(parentClass.getName().replaceAll("/", "."));
+  parentObjects.add(parentClass.getConstructor(new Class[] {}).newInstance(new Object[] {}));
+}
+
+if (parentObjects.size() > 0)
+  this.getClass().getField("nextObject").set(this, parentObjects.removeFirst());
+for (int i = 0; i < parentObjects.size() - 1; i++) {
+  Object parent = parentObjects.get(i);
+  parent.getClass().getField("nextObject").set(parent, parentObjects.get(i + 1));
+}
+""";
+        ctConstructor.insertBeforeBody(ctorString);
+
+        byte[] newByteCode = currentClass.toBytecode();
+        currentClass.detach();
+        return newByteCode;
+      }
+    } catch (NotFoundException ignore) {
+    } catch (Exception e) {
+      e.printStackTrace();
     }
+    return classFileBuffer;
+  }
 }
