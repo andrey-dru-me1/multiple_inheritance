@@ -91,7 +91,7 @@ java.util.List parents = this.getClass().getMethod("dfs", new Class[] {java.util
             )
       }
 );
-parents = parents.reversed();
+java.util.Collections.reverse(parents);
 System.out.println("Parents of " + this.getClass().getSimpleName() + " class: " + parents);
 
 ClassLoader loader = this.getClass().getClassLoader();
@@ -103,7 +103,7 @@ for (int i = 0; i < parents.size(); i++) {
 }
 
 if (parentObjects.size() > 0)
-  this.getClass().getField("nextObject").set(this, parentObjects.removeFirst());
+  this.getClass().getField("nextObject").set(this, parentObjects.remove(0));
 for (int i = 0; i < parentObjects.size() - 1; i++) {
   Object parent = parentObjects.get(i);
   parent.getClass().getField("nextObject").set(parent, parentObjects.get(i + 1));
