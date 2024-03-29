@@ -1,7 +1,13 @@
 package ru.nsu.some.team.app;
 
 public abstract class Functions {
-    void aMethod() {}
+    void aMethod() {
+    }
 
-    void bMethod() {}
+    void bMethod() {
+    }
+
+    Integer sum() {
+        return null;
+    }
 }

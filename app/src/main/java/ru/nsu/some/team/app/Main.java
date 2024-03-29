@@ -5,5 +5,6 @@ public class Main {
         C c = new C();
         c.aMethod();
         c.bMethod();
+        System.out.println(c.sum());
     }
 }

@@ -13,4 +13,8 @@ public class C extends Functions {
         System.out.println("A from C");
         super.aMethod();
     }
+
+    public Integer sum() {
+        return 1 + super.sum();
+    }
 }

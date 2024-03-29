@@ -13,4 +13,8 @@ public class B extends Functions {
         System.out.println("A from B");
         super.aMethod();
     }
+
+    public Integer sum() {
+        return 1 + super.sum();
+    }
 }

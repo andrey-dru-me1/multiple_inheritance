@@ -9,8 +9,7 @@ public class A extends Functions {
         super.aMethod();
     }
 
-//    public void bMethod() {
-//        System.out.println("B from A");
-//        callNext("bMethod");
-//    }
+    public Integer sum() {
+        return 1 + super.sum();
+    }
 }

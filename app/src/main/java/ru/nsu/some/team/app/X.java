@@ -8,4 +8,8 @@ public class X extends Functions {
     public void bMethod() {
         System.out.println("B from X");
     }
+
+    public Integer sum() {
+        return 1;
+    }
 }
