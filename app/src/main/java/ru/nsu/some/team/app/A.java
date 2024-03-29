@@ -12,4 +12,8 @@ public class A extends Functions {
     public Integer sum() {
         return 1 + super.sum();
     }
+
+    public Double returnLast(Double val) {
+        return super.returnLast(val) * 2;
+    }
 }

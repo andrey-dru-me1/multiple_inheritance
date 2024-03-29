@@ -12,4 +12,8 @@ public class X extends Functions {
     public Integer sum() {
         return 1;
     }
+
+    public Double returnLast(Double val) {
+        return val * 2;
+    }
 }

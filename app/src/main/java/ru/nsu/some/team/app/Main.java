@@ -6,5 +6,6 @@ public class Main {
         c.aMethod();
         c.bMethod();
         System.out.println(c.sum());
+        System.out.println(c.returnLast(5.6));
     }
 }
