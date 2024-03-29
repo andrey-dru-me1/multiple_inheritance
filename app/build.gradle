@@ -10,6 +10,8 @@ repositories {
     mavenCentral()
 }
 
+applicationDefaultJvmArgs = ["--add-opens", "java.base/java.lang=ALL-UNNAMED"]
+
 application {
     mainClass.set('ru.nsu.some.team.app.Main')
 }

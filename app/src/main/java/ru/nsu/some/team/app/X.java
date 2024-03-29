@@ -1,6 +1,6 @@
 package ru.nsu.some.team.app;
 
-public class X implements Functions {
+public class X extends Functions {
     public void aMethod() {
         System.out.println("A from X");
     }

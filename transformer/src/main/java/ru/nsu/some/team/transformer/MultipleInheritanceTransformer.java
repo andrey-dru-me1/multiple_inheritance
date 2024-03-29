@@ -1,12 +1,6 @@
 package ru.nsu.some.team.transformer;
 
-import javassist.CannotCompileException;
-import javassist.ClassPool;
-import javassist.CtClass;
-import javassist.CtConstructor;
-import javassist.CtField;
-import javassist.CtMethod;
-import javassist.NotFoundException;
+import javassist.*;
 import javassist.bytecode.Descriptor;
 
 import java.lang.instrument.ClassFileTransformer;
@@ -17,6 +11,7 @@ import java.util.List;
 public class MultipleInheritanceTransformer implements ClassFileTransformer {
 
     private void addCallNextMethod(CtClass current) throws CannotCompileException {
+        System.out.println("Add callNext to " + current.getName());
         CtField nextClass = CtField.make("public Object nextObject = null;", current);
         current.addField(nextClass);
 
@@ -34,6 +29,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
     }
 
     private void addDfsMethod(CtClass currentClass) throws CannotCompileException {
+        System.out.println("Add DFS to " + currentClass.getName());
         CtMethod dfsMethod =
                 CtMethod.make(
                         """
@@ -69,7 +65,16 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
         currentClass.addMethod(dfsMethod);
     }
 
+    private void addDefaultConstructor(CtClass currentClass) throws CannotCompileException {
+        System.out.println("Add default constructor to " + currentClass.getName());
+
+        CtConstructor defaultConstructor = CtNewConstructor.make("public " + currentClass.getSimpleName() + "() {}", currentClass);
+        currentClass.addConstructor(defaultConstructor);
+    }
+
     private void addConstructor(CtClass currentClass) throws CannotCompileException, NotFoundException {
+        System.out.println("Add DFS to constructor of " + currentClass.getName());
+
         CtConstructor ctConstructor =
                 currentClass.getConstructor(Descriptor.ofConstructor(new CtClass[]{}));
         String ctorString =
@@ -107,23 +112,15 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
         ctConstructor.insertBeforeBody(ctorString);
     }
 
-    private void addMissingFields(CtClass currentClass) throws CannotCompileException, ClassHierarchyException, NotFoundException {
-        CtClass[] interfaces = currentClass.getInterfaces();
-
-        if (interfaces.length == 0) {
-            throw new ClassHierarchyException(String.format("Class %s doesn't have root interface", currentClass.getName()));
-        }
-        CtClass rootInterface = interfaces[0];
-        CtMethod[] interfaceMethods = rootInterface.getDeclaredMethods();
-
+    private void addMissingMethods(CtClass currentClass, CtMethod[] methodSet) throws CannotCompileException, ClassHierarchyException, NotFoundException {
         List<String> currentMethods = Arrays.stream(currentClass.getDeclaredMethods())
                 .map(CtMethod::getName)
                 .toList();
 
-        for (CtMethod m : interfaceMethods) {
+        for (CtMethod m : methodSet) {
             if (!currentMethods.contains(m.getName())) {
                 String methodString = String.format(
-                        "public void %s() { this.callNext(\"%s\"); }",
+                        "public void %s() { super.%s(); }",
                         m.getName(), m.getName());
                 System.out.println("Generate: " + methodString);
                 CtMethod newMethod = CtMethod.make(methodString, currentClass);
@@ -132,36 +129,65 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
         }
     }
 
+    private void generateSuperclass(CtClass currentClass, ClassPool classPool, ClassLoader loader, CtMethod[] methodSet) throws CannotCompileException, NotFoundException {
+        String superclassName = String.format("%sSuperclass", currentClass.getName());
+        System.out.println("Generate superclass " + superclassName);
+        CtClass superclass = classPool.makeClass(superclassName);
+
+        addDefaultConstructor(superclass);
+
+        addCallNextMethod(superclass);
+
+        for (CtMethod m : methodSet) {
+            String methodString = String.format(
+                    "public void %s() { this.callNext(\"%s\"); }",
+                    m.getName(), m.getName());
+            System.out.println("Generate in superclass: " + methodString);
+            CtMethod newMethod = CtMethod.make(methodString, superclass);
+            superclass.addMethod(newMethod);
+        }
+
+        superclass.setSuperclass(currentClass.getSuperclass());
+        currentClass.setSuperclass(superclass);
+
+        addDfsMethod(superclass);
+        addConstructor(superclass);
+
+        superclass.toClass(loader, this.getClass().getProtectionDomain());
+    }
+
+    private CtMethod[] getMethodSet(CtClass currentClass) throws ClassHierarchyException {
+        CtClass superclass;
+
+        try {
+            superclass = currentClass.getSuperclass();
+        } catch (NotFoundException e) {
+            throw new ClassHierarchyException(String.format("Class %s doesn't have root class", currentClass.getName()));
+        }
+
+        return superclass.getDeclaredMethods();
+    }
+
     @Override
     public byte[] transform(
-            ClassLoader loader,
+            ClassLoader classLoader,
             String className,
             Class<?> classBeingRedefined,
             ProtectionDomain protectionDomain,
             byte[] classFileBuffer) {
-        ClassPool cp = ClassPool.getDefault();
+        ClassPool classPool = ClassPool.getDefault();
         String effectiveClassName = className.replaceAll("/", ".");
         try {
-            CtClass currentClass = cp.get(effectiveClassName);
+            CtClass currentClass = classPool.get(effectiveClassName);
 
             if (currentClass.hasAnnotation(Extends.class)) {
-                addCallNextMethod(currentClass);
-
                 System.out.printf("Found class with Extends annotation: %s\n", currentClass.getName());
 
-                String superclassName = String.format("%sSuperclass", currentClass.getName());
-                System.out.println("Generate superclass " + superclassName);
-                CtClass superclass = cp.makeClass(superclassName);
-                System.out.println(superclassName);
-                System.out.println(superclass.getName());
-                superclass.toClass(loader);
-                //superclass.writeFile();
-                //loader.loadClass(superclassName);
+                CtMethod[] methodSet = getMethodSet(currentClass);
 
+                generateSuperclass(currentClass, classPool, classLoader, methodSet);
 
-                addMissingFields(currentClass);
-                addDfsMethod(currentClass);
-                addConstructor(currentClass);
+                addMissingMethods(currentClass, methodSet);
 
                 byte[] newByteCode = currentClass.toBytecode();
                 currentClass.detach();
