@@ -11,7 +11,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
 
   private void addCallNextMethod(CtClass current)
     throws CannotCompileException {
-    System.out.println("Add callNext to " + current.getName());
+    // System.out.println("Add callNext to " + current.getName());
     CtField nextClass = CtField.make(
       "public Object nextObject = null;",
       current
@@ -21,7 +21,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
     CtMethod newMethod = CtMethod.make(
       """
                         private Object callNext(String methodName, Object[] args) throws NoSuchMethodException {
-                          System.out.println("Next " + this.nextObject);
+                          // System.out.println("Next " + this.nextObject);
                           if (this.nextObject == null) return null;
 
                           Class[] argClasses = new Class[args.length];
@@ -39,7 +39,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
 
   private void addDfsMethod(CtClass currentClass)
     throws CannotCompileException {
-    System.out.println("Add DFS to " + currentClass.getName());
+    // System.out.println("Add DFS to " + currentClass.getName());
     CtMethod dfsMethod = CtMethod.make(
       """
                         public java.util.List dfs(java.util.Set visited, java.util.Set parents) {
@@ -77,7 +77,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
 
   private void addDefaultConstructor(CtClass currentClass)
     throws CannotCompileException {
-    System.out.println("Add default constructor to " + currentClass.getName());
+    // System.out.println("Add default constructor to " + currentClass.getName());
 
     CtConstructor defaultConstructor = CtNewConstructor.make(
       "public " + currentClass.getSimpleName() + "() {}",
@@ -88,7 +88,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
 
   private void addConstructor(CtClass currentClass)
     throws CannotCompileException, NotFoundException {
-    System.out.println("Add DFS to constructor of " + currentClass.getName());
+    // System.out.println("Add DFS to constructor of " + currentClass.getName());
 
     CtConstructor ctConstructor = currentClass.getConstructor(
       Descriptor.ofConstructor(new CtClass[] {})
@@ -103,7 +103,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
                       }
                 );
                 java.util.Collections.reverse(parents);
-                System.out.println("Parents of " + this.getClass().getSimpleName() + " class: " + parents);
+                // System.out.println("Parents of " + this.getClass().getSimpleName() + " class: " + parents);
 
                 ClassLoader loader = this.getClass().getClassLoader();
                 java.util.List parentObjects = new java.util.ArrayList(parents.size());
@@ -116,13 +116,13 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
                 if (parentObjects.size() > 0) {
                   Object newObject = parentObjects.get(0);
                   this.getClass().getField("nextObject").set(this, newObject);
-                  System.out.println("Set next " + this + " " + newObject);
+                  // System.out.println("Set next " + this + " " + newObject);
                 }
                 for (int i = 0; i < parentObjects.size() - 1; i++) {
                   Object parent = parentObjects.get(i);
                   Object newObject = parentObjects.get(i + 1);
                   parent.getClass().getField("nextObject").set(parent, newObject);
-                  System.out.println("Set next " + parent + " " + newObject);
+                  // System.out.println("Set next " + parent + " " + newObject);
                 }
                 """;
     ctConstructor.insertBeforeBody(ctorString);
@@ -166,7 +166,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
             String.format(") { return super.%s(", m.getName())
           )
         );
-        System.out.println("Generate: " + methodString);
+        // System.out.println("Generate: " + methodString);
         CtMethod newMethod = CtMethod.make(methodString, currentClass);
         currentClass.addMethod(newMethod);
       }
@@ -183,7 +183,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
       "%sSuperclass",
       currentClass.getName()
     );
-    System.out.println("Generate superclass " + superclassName);
+    // System.out.println("Generate superclass " + superclassName);
     CtClass superclass = classPool.makeClass(superclassName);
 
     addDefaultConstructor(superclass);
@@ -217,7 +217,7 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
       methodStringBuilder.append("}); }");
       String methodString = methodStringBuilder.toString();
 
-      System.out.println("Generate in superclass: " + methodString);
+      // System.out.println("Generate in superclass: " + methodString);
       CtMethod newMethod = CtMethod.make(methodString, superclass);
       superclass.addMethod(newMethod);
     }
@@ -263,10 +263,10 @@ public class MultipleInheritanceTransformer implements ClassFileTransformer {
       CtClass currentClass = classPool.get(effectiveClassName);
 
       if (currentClass.hasAnnotation(Extends.class)) {
-        System.out.printf(
-          "Found class with Extends annotation: %s\n",
-          currentClass.getName()
-        );
+//        System.out.printf(
+//          "Found class with Extends annotation: %s\n",
+//          currentClass.getName()
+//        );
 
         CtMethod[] methodSet = getMethodSet(currentClass);
 
